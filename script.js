@@ -1,5 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+let spriteSheet = new Image();
+spriteSheet.src = "sprites.png";
 
 canvas.width = 1000;
 canvas.height = 700;
@@ -18,12 +20,21 @@ const laserGun = {
   height: 50,
 };
 
+const explosionFrames = [
+    { sx: 14, sy: 380, sw: 70, sh: 87}, //First frame
+    { sx: /* x2 */, sy: /* y2 */, sw: /* width2 */, sh: /* height2 */ },
+    // ... Add all frames similarly ...
+  ];
+
+  
+
 function addTowers(numberOfTowers) {
   const towerWidth = 40;
   const towerHeight = 60;
   const spacing =
     (canvas.width - numberOfTowers * towerWidth) / (numberOfTowers + 1);
   const laserGunCenter = canvas.width / 2;
+  const towerHitPoints = 100;
 
   for (let i = 0; i < numberOfTowers; i++) {
     let towerX = spacing + i * (towerWidth + spacing);
@@ -38,15 +49,21 @@ function addTowers(numberOfTowers) {
       y: canvas.height - towerHeight - 10,
       width: towerWidth,
       height: towerHeight,
+      hitPoints: towerHitPoints,
     });
   }
 }
 
 function drawTowers() {
   ctx.fillStyle = "blue";
-  towers.forEach((tower) =>
-    ctx.fillRect(tower.x, tower.y, tower.width, tower.height)
-  );
+  towers.forEach((tower) => {
+    if (tower.hitPoints > 0) {
+      ctx.fillRect(tower.x, tower.y, tower.width, tower.height);
+      ctx.fillStyle = "white";
+      ctx.fillText(tower.hitPoints, tower.x + 10, tower.y + 30);
+      ctx.fillStyle = "blue";
+    }
+  });
 }
 
 function drawLaserGun() {
@@ -67,7 +84,7 @@ function drawExplosions() {
     ctx.fill();
     explosion.radius += 2;
     checkExplosionCollision(explosion);
-    if (explosion.radius > 40) {
+    if (explosion.radius > 20) {
       explosions.splice(i, 1);
     }
   }
@@ -93,9 +110,8 @@ function drawMissiles() {
     ctx.fill();
     const dx = missile.toX - missile.x;
     const dy = missile.toY - missile.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    missile.x += (dx / distance) * 5;
-    missile.y += (dy / distance) * 5;
+    missile.x += (dx / Math.sqrt(dx * dx + dy * dy)) * 5;
+    missile.y += (dy / Math.sqrt(dx * dx + dy * dy)) * 5;
     if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
       createExplosion(missile.toX, missile.toY);
       missiles.splice(index, 1);
@@ -118,7 +134,9 @@ function drawEnemyMissiles() {
     missile.x += missile.sway;
     missile.y += missile.speed;
     missile.trail.push({ x: missile.x, y: missile.y });
-    if (missile.trail.length > 20) missile.trail.shift();
+    if (missile.trail.length > 20) {
+      missile.trail.shift();
+    }
 
     ctx.beginPath();
     missile.trail.forEach((pos) => ctx.lineTo(pos.x, pos.y));
@@ -130,8 +148,24 @@ function drawEnemyMissiles() {
     ctx.arc(missile.x, missile.y, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    if (missile.y > canvas.height) enemyMissiles.splice(index, 1);
+    checkMissileTowerCollision(missile, index);
   });
+}
+
+function checkMissileTowerCollision(missile, missileIndex) {
+  for (const tower of towers) {
+    if (
+      missile.x > tower.x &&
+      missile.x < tower.x + tower.width &&
+      missile.y > tower.y &&
+      missile.y < tower.y + tower.height &&
+      tower.hitPoints > 0
+    ) {
+      tower.hitPoints -= 20;
+      enemyMissiles.splice(missileIndex, 1);
+      break;
+    }
+  }
 }
 
 function drawReticle() {
