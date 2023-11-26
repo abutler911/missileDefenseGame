@@ -8,7 +8,8 @@ const towers = [];
 let score = 0;
 const reticle = { x: canvas.width / 2, y: canvas.height / 2 };
 const missiles = [];
-const explosions = []; // Declare the explosions array
+const explosions = [];
+const enemyMissiles = [];
 
 const laserGun = {
   x: canvas.width / 2 - 25,
@@ -16,6 +17,7 @@ const laserGun = {
   width: 50,
   height: 50,
 };
+
 function addTowers(numberOfTowers) {
   const towerWidth = 40;
   const towerHeight = 60;
@@ -81,6 +83,49 @@ function createExplosion(x, y) {
   explosions.push({ x, y, radius: 1 });
 }
 
+function addEnemyMissile() {
+  const x = Math.random() * canvas.width;
+  const y = 0;
+  const speed = Math.random() * 2 + 2; // Random speed
+  const sway = Math.random() * 2 - 1; // Random horizontal movement
+
+  enemyMissiles.push({ x, y, speed, sway, trail: [] });
+}
+
+function drawEnemyMissiles() {
+  enemyMissiles.forEach((missile, index) => {
+    // Update missile position
+    missile.x += missile.sway;
+    missile.y += missile.speed;
+
+    // Add current position to trail
+    missile.trail.push({ x: missile.x, y: missile.y });
+
+    // Keep the trail length limited
+    if (missile.trail.length > 10) {
+      missile.trail.shift();
+    }
+
+    // Draw missile trail
+    ctx.beginPath();
+    missile.trail.forEach((pos, index) => {
+      ctx.lineTo(pos.x, pos.y);
+    });
+    ctx.strokeStyle = "white";
+    ctx.stroke();
+
+    // Draw missile
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.arc(missile.x, missile.y, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Remove missile if it goes off screen
+    if (missile.y > canvas.height) {
+      enemyMissiles.splice(index, 1);
+    }
+  });
+}
 function drawExplosions() {
   for (let i = explosions.length - 1; i >= 0; i--) {
     const explosion = explosions[i];
@@ -116,6 +161,7 @@ function draw() {
   drawLaserGun();
   drawMissiles();
   drawExplosions();
+  drawEnemyMissiles();
   drawReticle();
   drawScore();
 }
@@ -141,6 +187,8 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
   draw();
 }
+
+setInterval(addEnemyMissile, 2000); // Add a new enemy missile every 2 seconds
 
 addTowers(5);
 gameLoop();
