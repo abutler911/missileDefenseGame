@@ -27,14 +27,12 @@ function addTowers(numberOfTowers) {
 
   for (let i = 0; i < numberOfTowers; i++) {
     let towerX = spacing + i * (towerWidth + spacing);
-
     if (
       towerX + towerWidth > laserGunCenter - laserGun.width / 2 &&
       towerX < laserGunCenter + laserGun.width / 2
     ) {
       continue;
     }
-
     towers.push({
       x: towerX,
       y: canvas.height - towerHeight - 10,
@@ -46,14 +44,45 @@ function addTowers(numberOfTowers) {
 
 function drawTowers() {
   ctx.fillStyle = "blue";
-  towers.forEach((tower) => {
-    ctx.fillRect(tower.x, tower.y, tower.width, tower.height);
-  });
+  towers.forEach((tower) =>
+    ctx.fillRect(tower.x, tower.y, tower.width, tower.height)
+  );
 }
 
 function drawLaserGun() {
   ctx.fillStyle = "green";
   ctx.fillRect(laserGun.x, laserGun.y, laserGun.width, laserGun.height);
+}
+
+function createExplosion(x, y) {
+  explosions.push({ x, y, radius: 1 });
+}
+
+function drawExplosions() {
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    const explosion = explosions[i];
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+    ctx.fill();
+    explosion.radius += 2;
+    checkExplosionCollision(explosion);
+    if (explosion.radius > 40) {
+      explosions.splice(i, 1);
+    }
+  }
+}
+
+function checkExplosionCollision(explosion) {
+  for (let i = enemyMissiles.length - 1; i >= 0; i--) {
+    const missile = enemyMissiles[i];
+    const dx = explosion.x - missile.x;
+    const dy = explosion.y - missile.y;
+    if (Math.sqrt(dx * dx + dy * dy) < explosion.radius + 5) {
+      enemyMissiles.splice(i, 1);
+      score += 10;
+    }
+  }
 }
 
 function drawMissiles() {
@@ -62,16 +91,11 @@ function drawMissiles() {
     ctx.beginPath();
     ctx.arc(missile.x, missile.y, 5, 0, Math.PI * 2);
     ctx.fill();
-
     const dx = missile.toX - missile.x;
     const dy = missile.toY - missile.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    const moveX = (dx / distance) * 5;
-    const moveY = (dy / distance) * 5;
-
-    missile.x += moveX;
-    missile.y += moveY;
-
+    missile.x += (dx / distance) * 5;
+    missile.y += (dy / distance) * 5;
     if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
       createExplosion(missile.toX, missile.toY);
       missiles.splice(index, 1);
@@ -79,67 +103,35 @@ function drawMissiles() {
   });
 }
 
-function createExplosion(x, y) {
-  explosions.push({ x, y, radius: 1 });
-}
-
 function addEnemyMissile() {
-  const x = Math.random() * canvas.width;
-  const y = 0;
-  const speed = Math.random() * 2 + 2; // Random speed
-  const sway = Math.random() * 2 - 1; // Random horizontal movement
-
-  enemyMissiles.push({ x, y, speed, sway, trail: [] });
+  enemyMissiles.push({
+    x: Math.random() * canvas.width,
+    y: 0,
+    speed: Math.random() * 1.5 + 1,
+    sway: Math.random() * 2 - 1,
+    trail: [],
+  });
 }
 
 function drawEnemyMissiles() {
   enemyMissiles.forEach((missile, index) => {
-    // Update missile position
     missile.x += missile.sway;
     missile.y += missile.speed;
-
-    // Add current position to trail
     missile.trail.push({ x: missile.x, y: missile.y });
+    if (missile.trail.length > 20) missile.trail.shift();
 
-    // Keep the trail length limited
-    if (missile.trail.length > 10) {
-      missile.trail.shift();
-    }
-
-    // Draw missile trail
     ctx.beginPath();
-    missile.trail.forEach((pos, index) => {
-      ctx.lineTo(pos.x, pos.y);
-    });
+    missile.trail.forEach((pos) => ctx.lineTo(pos.x, pos.y));
     ctx.strokeStyle = "white";
     ctx.stroke();
 
-    // Draw missile
     ctx.fillStyle = "red";
     ctx.beginPath();
     ctx.arc(missile.x, missile.y, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    // Remove missile if it goes off screen
-    if (missile.y > canvas.height) {
-      enemyMissiles.splice(index, 1);
-    }
+    if (missile.y > canvas.height) enemyMissiles.splice(index, 1);
   });
-}
-function drawExplosions() {
-  for (let i = explosions.length - 1; i >= 0; i--) {
-    const explosion = explosions[i];
-    ctx.fillStyle = "orange";
-    ctx.beginPath();
-    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
-    ctx.fill();
-
-    explosion.radius += 2;
-
-    if (explosion.radius > 40) {
-      explosions.splice(i, 1);
-    }
-  }
 }
 
 function drawReticle() {
@@ -188,7 +180,6 @@ function gameLoop() {
   draw();
 }
 
-setInterval(addEnemyMissile, 2000); // Add a new enemy missile every 2 seconds
-
+setInterval(addEnemyMissile, 2000);
 addTowers(5);
 gameLoop();
