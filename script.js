@@ -4,10 +4,10 @@ const ctx = canvas.getContext("2d");
 canvas.width = 1000;
 canvas.height = 700;
 
-let x = 0;
 const towers = [];
-let laserY = canvas.height;
 let score = 0;
+const reticle = { x: canvas.width / 2, y: canvas.height / 2 };
+const missiles = [];
 
 const laserGun = {
   x: canvas.width / 2 - 25,
@@ -21,10 +21,20 @@ function addTowers(numberOfTowers) {
   const towerHeight = 60;
   const spacing =
     (canvas.width - numberOfTowers * towerWidth) / (numberOfTowers + 1);
+  const laserGunCenter = canvas.width / 2;
 
   for (let i = 0; i < numberOfTowers; i++) {
+    let towerX = spacing + i * (towerWidth + spacing);
+
+    if (
+      towerX + towerWidth > laserGunCenter - laserGun.width / 2 &&
+      towerX < laserGunCenter + laserGun.width / 2
+    ) {
+      continue;
+    }
+
     towers.push({
-      x: spacing + i * (towerWidth + spacing),
+      x: towerX,
       y: canvas.height - towerHeight - 10,
       width: towerWidth,
       height: towerHeight,
@@ -44,19 +54,38 @@ function drawLaserGun() {
   ctx.fillRect(laserGun.x, laserGun.y, laserGun.width, laserGun.height);
 }
 
-function drawLaserBeam() {
-  if (laserY < canvas.height) {
-    ctx.strokeStyle = "yellow";
+function drawMissiles() {
+  missiles.forEach((missile, index) => {
+    ctx.fillStyle = "red";
     ctx.beginPath();
-    ctx.moveTo(laserGun.x + laserGun.width / 2, laserGun.y);
-    ctx.lineTo(laserGun.x + laserGun.width / 2, laserY);
-    ctx.stroke();
-    laserY -= 5;
+    ctx.arc(missile.x, missile.y, 5, 0, Math.PI * 2);
+    ctx.fill();
 
-    if (laserY <= 0) {
-      laserY = canvas.height;
+    const dx = missile.toX - missile.x;
+    const dy = missile.toY - missile.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const moveX = (dx / distance) * 5;
+    const moveY = (dy / distance) * 5;
+
+    missile.x += moveX;
+    missile.y += moveY;
+
+    if (
+      distance < 5 ||
+      missile.y < 0 ||
+      missile.x < 0 ||
+      missile.x > canvas.width
+    ) {
+      missiles.splice(index, 1);
     }
-  }
+  });
+}
+
+function drawReticle() {
+  ctx.strokeStyle = "white";
+  ctx.beginPath();
+  ctx.arc(reticle.x, reticle.y, 10, 0, Math.PI * 2);
+  ctx.stroke();
 }
 
 function drawScore() {
@@ -69,22 +98,27 @@ function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   drawTowers();
   drawLaserGun();
-  drawLaserBeam();
+  drawMissiles();
+  drawReticle();
   drawScore();
 }
 
-function handleKeydown(e) {
-  if (e.key === "ArrowLeft" && laserGun.x > 0) {
-    laserGun.x -= 10;
-  } else if (
-    e.key === "ArrowRight" &&
-    laserGun.x < canvas.width - laserGun.width
-  ) {
-    laserGun.x += 10;
-  }
+function handleMouseMove(e) {
+  reticle.x = e.clientX - canvas.offsetLeft;
+  reticle.y = e.clientY - canvas.offsetTop;
 }
 
-document.addEventListener("keydown", handleKeydown);
+function handleMouseDown() {
+  missiles.push({
+    x: laserGun.x + laserGun.width / 2,
+    y: laserGun.y,
+    toX: reticle.x,
+    toY: reticle.y,
+  });
+}
+
+canvas.addEventListener("mousemove", handleMouseMove);
+canvas.addEventListener("mousedown", handleMouseDown);
 
 function gameLoop() {
   requestAnimationFrame(gameLoop);
