@@ -8,6 +8,7 @@ const towers = [];
 let score = 0;
 const reticle = { x: canvas.width / 2, y: canvas.height / 2 };
 const missiles = [];
+const explosions = []; // Declare the explosions array
 
 const laserGun = {
   x: canvas.width / 2 - 25,
@@ -15,7 +16,6 @@ const laserGun = {
   width: 50,
   height: 50,
 };
-
 function addTowers(numberOfTowers) {
   const towerWidth = 40;
   const towerHeight = 60;
@@ -70,15 +70,31 @@ function drawMissiles() {
     missile.x += moveX;
     missile.y += moveY;
 
-    if (
-      distance < 5 ||
-      missile.y < 0 ||
-      missile.x < 0 ||
-      missile.x > canvas.width
-    ) {
+    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
+      createExplosion(missile.toX, missile.toY);
       missiles.splice(index, 1);
     }
   });
+}
+
+function createExplosion(x, y) {
+  explosions.push({ x, y, radius: 1 });
+}
+
+function drawExplosions() {
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    const explosion = explosions[i];
+    ctx.fillStyle = "orange";
+    ctx.beginPath();
+    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    explosion.radius += 2;
+
+    if (explosion.radius > 40) {
+      explosions.splice(i, 1);
+    }
+  }
 }
 
 function drawReticle() {
@@ -99,6 +115,7 @@ function draw() {
   drawTowers();
   drawLaserGun();
   drawMissiles();
+  drawExplosions();
   drawReticle();
   drawScore();
 }
