@@ -1,6 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
+let starrySkyCanvas = document.createElement("canvas");
+let starrySkyCtx = starrySkyCanvas.getContext("2d");
 let spriteSheet = new Image();
 spriteSheet.src = "sprites.png";
 
@@ -12,13 +13,13 @@ const explosions = [];
 const enemyMissiles = [];
 const laserGun = { width: 50, height: 50 };
 const explosionFrames = [
-  // ... your explosion frames ...
+  // ... explosion frames ...
 ];
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-
+  createStarrySky();
   laserGun.x = canvas.width / 2 - laserGun.width / 2;
   laserGun.y = canvas.height - laserGun.height - 10;
   reticle.x = canvas.width / 2;
@@ -229,8 +230,29 @@ function drawScore() {
   ctx.fillText("Score: " + score, canvas.width - 150, 30);
 }
 
+function createStarrySky() {
+  starrySkyCanvas.width = canvas.width;
+  starrySkyCanvas.height = canvas.height;
+  drawStarrySky(starrySkyCtx); // Pass the off-screen context
+}
+
+function drawStarrySky(ctx) {
+  const starCount = 100; // Adjust the number of stars
+  ctx.fillStyle = "white";
+
+  for (let i = 0; i < starCount; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const radius = Math.random() * 1.5; // Vary the size for a more natural look
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(starrySkyCanvas, 0, 0);
   drawTowers();
   drawLaserGun();
   drawMissiles();
