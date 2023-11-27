@@ -1,10 +1,8 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+
 let spriteSheet = new Image();
 spriteSheet.src = "sprites.png";
-
-canvas.width = 1000;
-canvas.height = 700;
 
 const towers = [];
 let score = 0;
@@ -12,21 +10,50 @@ const reticle = { x: canvas.width / 2, y: canvas.height / 2 };
 const missiles = [];
 const explosions = [];
 const enemyMissiles = [];
-
-const laserGun = {
-  x: canvas.width / 2 - 25,
-  y: canvas.height - 50,
-  width: 50,
-  height: 50,
-};
-
+const laserGun = { width: 50, height: 50 };
 const explosionFrames = [
-    { sx: 14, sy: 380, sw: 70, sh: 87}, //First frame
-    { sx: /* x2 */, sy: /* y2 */, sw: /* width2 */, sh: /* height2 */ },
-    // ... Add all frames similarly ...
-  ];
+  // ... your explosion frames ...
+];
 
-  
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+
+  laserGun.x = canvas.width / 2 - laserGun.width / 2;
+  laserGun.y = canvas.height - laserGun.height - 10;
+  reticle.x = canvas.width / 2;
+  reticle.y = canvas.height / 2;
+
+  // Update tower positions based on new canvas size
+  positionTowers();
+}
+
+function positionTowers() {
+  const numberOfTowers = 5;
+  const towerWidth = 40;
+  const towerHeight = 60;
+  const spacing =
+    (canvas.width - numberOfTowers * towerWidth) / (numberOfTowers + 1);
+  const towerHitPoints = 100;
+
+  towers.length = 0; // Clear existing towers
+  for (let i = 0; i < numberOfTowers; i++) {
+    let towerX = spacing + i * (towerWidth + spacing);
+    if (
+      towerX + towerWidth > laserGun.x &&
+      towerX < laserGun.x + laserGun.width
+    ) {
+      continue;
+    }
+    towers.push({
+      x: towerX,
+      y: canvas.height - towerHeight - 10,
+      width: towerWidth,
+      height: towerHeight,
+      hitPoints: towerHitPoints,
+    });
+  }
+}
 
 function addTowers(numberOfTowers) {
   const towerWidth = 40;
@@ -78,13 +105,34 @@ function createExplosion(x, y) {
 function drawExplosions() {
   for (let i = explosions.length - 1; i >= 0; i--) {
     const explosion = explosions[i];
-    ctx.fillStyle = "orange";
+
+    // Create a radial gradient (inner to outer color)
+    const gradient = ctx.createRadialGradient(
+      explosion.x,
+      explosion.y,
+      0,
+      explosion.x,
+      explosion.y,
+      explosion.radius
+    );
+    gradient.addColorStop(0, "yellow");
+    gradient.addColorStop(0.4, "orange");
+    gradient.addColorStop(0.6, "red");
+    gradient.addColorStop(1, "rgba(255, 165, 0, 0)"); // Transparent at the edges
+
+    ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
     ctx.fill();
+
+    // Increase the radius for the next draw
     explosion.radius += 2;
+
+    // Check for collision with enemy missiles
     checkExplosionCollision(explosion);
-    if (explosion.radius > 20) {
+
+    // Remove the explosion after it reaches a certain size
+    if (explosion.radius > 100) {
       explosions.splice(i, 1);
     }
   }
@@ -191,7 +239,6 @@ function draw() {
   drawReticle();
   drawScore();
 }
-
 function handleMouseMove(e) {
   reticle.x = e.clientX - canvas.offsetLeft;
   reticle.y = e.clientY - canvas.offsetTop;
@@ -214,6 +261,8 @@ function gameLoop() {
   draw();
 }
 
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas(); // Set initial canvas size and position elements
+
 setInterval(addEnemyMissile, 2000);
-addTowers(5);
 gameLoop();
