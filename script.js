@@ -7,7 +7,7 @@ spriteSheet.src = "sprites.png";
 
 const towers = [];
 let score = 0;
-const reticle = { x: canvas.width / 2, y: canvas.height / 2 };
+const reticle = { x: 0, y: 0 };
 const missiles = [];
 const explosions = [];
 const enemyMissiles = [];
@@ -16,17 +16,30 @@ const explosionFrames = [
   // ... explosion frames ...
 ];
 
+function createStarrySky() {
+  starrySkyCanvas.width = canvas.width;
+  starrySkyCanvas.height = canvas.height;
+  const starCount = 100;
+  starrySkyCtx.fillStyle = "white";
+  for (let i = 0; i < starCount; i++) {
+    const x = Math.random() * canvas.width;
+    const y = Math.random() * canvas.height;
+    const radius = Math.random() * 1.5;
+    starrySkyCtx.beginPath();
+    starrySkyCtx.arc(x, y, radius, 0, Math.PI * 2);
+    starrySkyCtx.fill();
+  }
+}
+
 function resizeCanvas() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
   createStarrySky();
+  positionTowers();
   laserGun.x = canvas.width / 2 - laserGun.width / 2;
   laserGun.y = canvas.height - laserGun.height - 10;
   reticle.x = canvas.width / 2;
   reticle.y = canvas.height / 2;
-
-  // Update tower positions based on new canvas size
-  positionTowers();
 }
 
 function positionTowers() {
@@ -36,39 +49,12 @@ function positionTowers() {
   const spacing =
     (canvas.width - numberOfTowers * towerWidth) / (numberOfTowers + 1);
   const towerHitPoints = 100;
-
-  towers.length = 0; // Clear existing towers
+  towers.length = 0;
   for (let i = 0; i < numberOfTowers; i++) {
     let towerX = spacing + i * (towerWidth + spacing);
     if (
       towerX + towerWidth > laserGun.x &&
       towerX < laserGun.x + laserGun.width
-    ) {
-      continue;
-    }
-    towers.push({
-      x: towerX,
-      y: canvas.height - towerHeight - 10,
-      width: towerWidth,
-      height: towerHeight,
-      hitPoints: towerHitPoints,
-    });
-  }
-}
-
-function addTowers(numberOfTowers) {
-  const towerWidth = 40;
-  const towerHeight = 60;
-  const spacing =
-    (canvas.width - numberOfTowers * towerWidth) / (numberOfTowers + 1);
-  const laserGunCenter = canvas.width / 2;
-  const towerHitPoints = 100;
-
-  for (let i = 0; i < numberOfTowers; i++) {
-    let towerX = spacing + i * (towerWidth + spacing);
-    if (
-      towerX + towerWidth > laserGunCenter - laserGun.width / 2 &&
-      towerX < laserGunCenter + laserGun.width / 2
     ) {
       continue;
     }
@@ -261,30 +247,33 @@ function draw() {
   drawReticle();
   drawScore();
 }
-function handleMouseMove(e) {
-  reticle.x = e.clientX - canvas.offsetLeft;
-  reticle.y = e.clientY - canvas.offsetTop;
+
+function handleTouchMove(e) {
+  const touch = e.touches[0];
+  reticle.x = touch.clientX - canvas.offsetLeft;
+  reticle.y = touch.clientY - canvas.offsetTop;
 }
 
-function handleMouseDown() {
+function handleTouchStart(e) {
+  const touch = e.touches[0];
   missiles.push({
     x: laserGun.x + laserGun.width / 2,
     y: laserGun.y,
-    toX: reticle.x,
-    toY: reticle.y,
+    toX: touch.clientX - canvas.offsetLeft,
+    toY: touch.clientY - canvas.offsetTop,
   });
 }
 
-canvas.addEventListener("mousemove", handleMouseMove);
-canvas.addEventListener("mousedown", handleMouseDown);
+canvas.addEventListener("touchmove", handleTouchMove);
+canvas.addEventListener("touchstart", handleTouchStart);
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 
 function gameLoop() {
   requestAnimationFrame(gameLoop);
   draw();
 }
-
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas(); // Set initial canvas size and position elements
 
 setInterval(addEnemyMissile, 2000);
 gameLoop();
