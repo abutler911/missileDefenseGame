@@ -15,6 +15,12 @@ const laserGun = { width: 50, height: 50 };
 const explosionFrames = [
   // ... explosion frames ...
 ];
+const groundHeight = 30; // Height of the ground from the bottom of the canvas
+
+function drawGround() {
+  ctx.fillStyle = "#654321"; // Brown color for the ground
+  ctx.fillRect(0, canvas.height - groundHeight, canvas.width, groundHeight);
+}
 
 function createStarrySky() {
   starrySkyCanvas.width = canvas.width;
@@ -66,6 +72,10 @@ function positionTowers() {
       hitPoints: towerHitPoints,
     });
   }
+
+  towers.forEach((tower) => {
+    tower.y = canvas.height - groundHeight - tower.height;
+  });
 }
 
 function drawTowers() {
@@ -99,38 +109,24 @@ function createExplosion(x, y) {
 function drawExplosions() {
   for (let i = explosions.length - 1; i >= 0; i--) {
     const explosion = explosions[i];
+    const sprite = explosionSprites[explosion.spriteIndex];
 
-    // Create a radial gradient (inner to outer color)
-    const gradient = ctx.createRadialGradient(
-      explosion.x,
-      explosion.y,
-      0,
-      explosion.x,
-      explosion.y,
-      explosion.radius
+    const yOffset = 70;
+
+    ctx.drawImage(
+      sprite,
+      explosion.x - sprite.width / 2,
+      explosion.y - sprite.height / 2 - yOffset
     );
-    gradient.addColorStop(0, "yellow");
-    gradient.addColorStop(0.4, "orange");
-    gradient.addColorStop(0.6, "red");
-    gradient.addColorStop(1, "rgba(255, 165, 0, 0)"); // Transparent at the edges
 
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(explosion.x, explosion.y, explosion.radius, 0, Math.PI * 2);
-    ctx.fill();
+    explosion.frameCount++;
+    if (explosion.frameCount >= explosion.frameRate) {
+      explosion.spriteIndex++;
+      explosion.frameCount = 0;
 
-    // Increase the radius for the next draw
-    explosion.radius += 2;
-    if (explosion.radius > explosion.maxRadius) {
-      explosions.splice(i, 1); // Remove explosion after reaching max size
-    }
-
-    // Check for collision with enemy missiles
-    checkExplosionCollision(explosion);
-
-    // Remove the explosion after it reaches a certain size
-    if (explosion.radius > 100) {
-      explosions.splice(i, 1);
+      if (explosion.spriteIndex >= explosionSprites.length) {
+        explosions.splice(i, 1);
+      }
     }
   }
 }
@@ -176,36 +172,43 @@ function addEnemyMissile() {
 
 function drawEnemyMissiles() {
   enemyMissiles.forEach((missile, index) => {
+    // Update missile position
     missile.x += missile.sway;
     missile.y += missile.speed;
+
+    // Add current position to the trail
     missile.trail.push({ x: missile.x, y: missile.y });
+
+    // Keep the trail length consistent
     const trailLength = 50;
     if (missile.trail.length > trailLength) {
       missile.trail.shift();
     }
 
+    // Draw the missile trail
     const gradient = ctx.createLinearGradient(
       missile.x,
       missile.y,
       missile.x,
       missile.trail[0].y
     );
-    gradient.addColorStop(0, "rgba(255, 0, 0, 1)");
-    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+    gradient.addColorStop(0, "rgba(255, 0, 0, 1)"); // Red at the missile
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)"); // Transparent at the start of the trail
 
     ctx.beginPath();
     ctx.moveTo(missile.x, missile.y);
     missile.trail.forEach((pos, idx) => {
-      if (idx === 0) {
-        ctx.lineTo(pos.x, pos.y);
-      } else {
-        ctx.lineTo(pos.x, pos.y);
-      }
+      ctx.lineTo(pos.x, pos.y);
     });
     ctx.strokeStyle = gradient;
     ctx.lineWidth = 2;
     ctx.stroke();
 
+    if (missile.y >= canvas.height - groundHeight) {
+      createGroundExplosion(missile.x, canvas.height - groundHeight);
+      enemyMissiles.splice(index, 1); // Remove the missile
+    }
+    // Draw the missile head
     const missileHeadSize = 3;
     ctx.fillStyle = "red";
     ctx.shadowColor = "red";
@@ -214,24 +217,34 @@ function drawEnemyMissiles() {
     ctx.arc(missile.x, missile.y, missileHeadSize, 0, Math.PI * 2);
     ctx.fill();
     ctx.shadowBlur = 0;
-    if (missile.y >= canvas.height) {
-      createGroundExplosion(missile.x, canvas.height);
-      enemyMissiles.splice(index, 1);
-    }
+
+    // Check for collisions with towers
     checkMissileTowerCollision(missile, index);
   });
 }
+
+let explosionSprites = [];
+for (let i = 1; i < 10; i++) {
+  let sprite = new Image();
+  sprite.src = "ExplosionB/Explosion-B" + i + ".png";
+  explosionSprites.push(sprite);
+}
+
+function checkMissileGroundCollision(missile, index) {
+  // Check if missile hits the ground
+  if (missile.y >= canvas.height - groundHeight) {
+    createGroundExplosion(missile.x, canvas.height - groundHeight);
+    enemyMissiles.splice(index, 1); // Remove missile
+  }
+}
+
 function createGroundExplosion(x, y) {
-  const initialRadius = 10;
-  const maxRadius = 250;
-  const stemHeight = 150;
   explosions.push({
     x,
     y,
-    radius: initialRadius,
-    maxRadius,
-    stemHeight,
-    expanding: true,
+    spriteIndex: 0, // Start with the first sprite
+    frameCount: 0, // Counter for controlling sprite change rate
+    frameRate: 5, // Number of game frames before changing the sprite
   });
 }
 
@@ -309,6 +322,7 @@ function draw() {
   drawEnemyMissiles();
   drawReticle();
   drawScore();
+  drawGround();
 }
 
 function handleTouchMove(e) {
