@@ -86,7 +86,14 @@ function drawLaserGun() {
 }
 
 function createExplosion(x, y) {
-  explosions.push({ x, y, radius: 1 });
+  // Add an initial stage for the explosion
+  explosions.push({
+    x,
+    y,
+    radius: 1,
+    stage: 0,
+    maxRadius: 100, // Maximum radius of explosion
+  });
 }
 
 function drawExplosions() {
@@ -114,6 +121,9 @@ function drawExplosions() {
 
     // Increase the radius for the next draw
     explosion.radius += 2;
+    if (explosion.radius > explosion.maxRadius) {
+      explosions.splice(i, 1); // Remove explosion after reaching max size
+    }
 
     // Check for collision with enemy missiles
     checkExplosionCollision(explosion);
@@ -169,21 +179,59 @@ function drawEnemyMissiles() {
     missile.x += missile.sway;
     missile.y += missile.speed;
     missile.trail.push({ x: missile.x, y: missile.y });
-    if (missile.trail.length > 20) {
+    const trailLength = 50;
+    if (missile.trail.length > trailLength) {
       missile.trail.shift();
     }
 
+    const gradient = ctx.createLinearGradient(
+      missile.x,
+      missile.y,
+      missile.x,
+      missile.trail[0].y
+    );
+    gradient.addColorStop(0, "rgba(255, 0, 0, 1)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
     ctx.beginPath();
-    missile.trail.forEach((pos) => ctx.lineTo(pos.x, pos.y));
-    ctx.strokeStyle = "white";
+    ctx.moveTo(missile.x, missile.y);
+    missile.trail.forEach((pos, idx) => {
+      if (idx === 0) {
+        ctx.lineTo(pos.x, pos.y);
+      } else {
+        ctx.lineTo(pos.x, pos.y);
+      }
+    });
+    ctx.strokeStyle = gradient;
+    ctx.lineWidth = 2;
     ctx.stroke();
 
+    const missileHeadSize = 3;
     ctx.fillStyle = "red";
+    ctx.shadowColor = "red";
+    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.arc(missile.x, missile.y, 5, 0, Math.PI * 2);
+    ctx.arc(missile.x, missile.y, missileHeadSize, 0, Math.PI * 2);
     ctx.fill();
-
+    ctx.shadowBlur = 0;
+    if (missile.y >= canvas.height) {
+      createGroundExplosion(missile.x, canvas.height);
+      enemyMissiles.splice(index, 1);
+    }
     checkMissileTowerCollision(missile, index);
+  });
+}
+function createGroundExplosion(x, y) {
+  const initialRadius = 10;
+  const maxRadius = 250;
+  const stemHeight = 150;
+  explosions.push({
+    x,
+    y,
+    radius: initialRadius,
+    maxRadius,
+    stemHeight,
+    expanding: true,
   });
 }
 
@@ -210,6 +258,21 @@ function drawReticle() {
   ctx.stroke();
 }
 
+function handleMouseMove(e) {
+  reticle.x = e.clientX - canvas.offsetLeft;
+  reticle.y = e.clientY - canvas.offsetTop;
+}
+
+// Add Mouse Click Handler
+function handleMouseClick(e) {
+  missiles.push({
+    x: laserGun.x + laserGun.width / 2,
+    y: laserGun.y,
+    toX: e.clientX - canvas.offsetLeft,
+    toY: e.clientY - canvas.offsetTop,
+  });
+}
+
 function drawScore() {
   ctx.fillStyle = "white";
   ctx.font = "20px Arial";
@@ -219,17 +282,17 @@ function drawScore() {
 function createStarrySky() {
   starrySkyCanvas.width = canvas.width;
   starrySkyCanvas.height = canvas.height;
-  drawStarrySky(starrySkyCtx); // Pass the off-screen context
+  drawStarrySky(starrySkyCtx);
 }
 
 function drawStarrySky(ctx) {
-  const starCount = 100; // Adjust the number of stars
+  const starCount = 100;
   ctx.fillStyle = "white";
 
   for (let i = 0; i < starCount; i++) {
     const x = Math.random() * canvas.width;
     const y = Math.random() * canvas.height;
-    const radius = Math.random() * 1.5; // Vary the size for a more natural look
+    const radius = Math.random() * 1.5;
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fill();
@@ -266,7 +329,8 @@ function handleTouchStart(e) {
 
 canvas.addEventListener("touchmove", handleTouchMove);
 canvas.addEventListener("touchstart", handleTouchStart);
-
+canvas.addEventListener("mousemove", handleMouseMove);
+canvas.addEventListener("click", handleMouseClick);
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
