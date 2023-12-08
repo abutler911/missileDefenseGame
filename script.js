@@ -9,6 +9,9 @@ let citySprites = [];
 let playerMissiles = [];
 let isFiring = false;
 let lastFired = 0;
+let loadedImagesCount = 0;
+const totalImages = 5 + 9 + 15;
+
 class City {
   constructor(sprite, x, y, scale = 0.5) {
     this.sprite = sprite;
@@ -32,23 +35,36 @@ const reticle = {
   size: 10,
 };
 
+// Load City Images
 for (let i = 1; i <= 5; i++) {
   let sprite = new Image();
+  sprite.onload = imageLoaded;
   sprite.src = `cities/city0${i}.png`;
   citySprites.push(sprite);
 }
-createCities();
 
+// Load ExplosionB Images
 for (let i = 1; i <= 9; i++) {
   let sprite = new Image();
+  sprite.onload = imageLoaded;
   sprite.src = `ExplosionB/Explosion-B${i}.png`;
   explosionSprites.push(sprite);
 }
 
-for (let i = 1; i <= 15; i++) {
+// Load ExplosionA Images
+for (let i = 1; i <= 11; i++) {
   let sprite = new Image();
+  sprite.onload = imageLoaded;
   sprite.src = `ExplosionA/Explosion-A${i}.png`;
   playerExplosionSprites.push(sprite);
+}
+
+// Image Load Handler
+function imageLoaded() {
+  loadedImagesCount++;
+  if (loadedImagesCount === totalImages) {
+    startGame(); // Start the game after all images are loaded
+  }
 }
 
 let starrySkyCanvas = document.createElement("canvas");
@@ -64,11 +80,11 @@ class PlayerMissile {
     this.targetY = targetY;
     this.speed = 10;
     this.active = true;
-
     this.exploding = false;
     this.explosionIndex = 0;
     this.frameCount = 0;
     this.frameRate = 10;
+    this.explosionRadius = 0;
   }
 
   update() {
@@ -76,6 +92,7 @@ class PlayerMissile {
       const dx = this.targetX - this.x;
       const dy = this.targetY - this.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
+
       if (distance > this.speed) {
         this.x += (dx / distance) * this.speed;
         this.y += (dy / distance) * this.speed;
@@ -88,8 +105,13 @@ class PlayerMissile {
         this.explosionIndex++;
         this.frameCount = 0;
 
+        // Update explosion radius based on explosion sprite size or a fixed value
+        this.explosionRadius = 40;
+
         if (this.explosionIndex >= playerExplosionSprites.length) {
           this.active = false;
+        } else {
+          checkCollisionWithEnemyMissiles(this);
         }
       }
     }
@@ -104,7 +126,6 @@ class PlayerMissile {
       ctx.fillStyle = "green";
       ctx.fill();
     } else if (this.explosionIndex < playerExplosionSprites.length) {
-      // Draw explosion
       let sprite = playerExplosionSprites[this.explosionIndex];
       ctx.drawImage(
         sprite,
@@ -323,6 +344,21 @@ function fireMissile() {
     new PlayerMissile(missileLauncherX, missileLauncherY, reticle.x, reticle.y)
   );
 }
+
+function checkCollisionWithEnemyMissiles(playerMissile) {
+  for (let i = enemyMissiles.length - 1; i >= 0; i--) {
+    const enemyMissile = enemyMissiles[i];
+    const dx = playerMissile.x - enemyMissile.x;
+    const dy = playerMissile.y - enemyMissile.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < playerMissile.explosionRadius) {
+      enemyMissiles.splice(i, 1); // Remove the enemy missile
+      // Additional code if needed, e.g., increase score
+    }
+  }
+}
+
 canvas.addEventListener("click", handleStartClick);
 canvas.addEventListener("mousedown", (e) => {
   isFiring = true;
@@ -375,10 +411,12 @@ function gameLoop(timestamp) {
 
 setInterval(addEnemyMissile, 2000);
 
+// Start Game Function
 function startGame() {
   if (!gameStarted) {
     drawStartScreen();
   }
 }
 
+// Initialize the game
 startGame();
