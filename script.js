@@ -1,6 +1,7 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const groundHeight = 30;
+let gameStarted = false;
 let enemyMissileExplosions = [];
 let explosionSprites = [];
 let playerExplosionSprites = [];
@@ -114,6 +115,36 @@ class PlayerMissile {
   }
 }
 
+function drawStartScreen() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  ctx.font = '100px "Press Start 2P", cursive';
+  ctx.fillStyle = "white";
+  ctx.textAlign = "center";
+  ctx.fillText("Missile Defense", canvas.width / 2, canvas.height / 2 - 20);
+
+  ctx.fillStyle = "green";
+  ctx.fillRect(canvas.width / 2 - 50, canvas.height / 2, 100, 40);
+  ctx.fillStyle = "white";
+  ctx.fillText("Start", canvas.width / 2, canvas.height / 2 + 30);
+}
+
+function handleStartClick(e) {
+  const rect = canvas.getBoundingClientRect();
+  const clickX = e.clientX - rect.left;
+  const clickY = e.clientY - rect.top;
+
+  if (
+    clickX >= canvas.width / 2 - 50 &&
+    clickX <= canvas.width / 2 + 50 &&
+    clickY >= canvas.height / 2 &&
+    clickY <= canvas.height / 2 + 40
+  ) {
+    gameStarted = true;
+    canvas.removeEventListener("click", handleStartClick);
+    gameLoop();
+  }
+}
 function drawGround() {
   ctx.fillStyle = "#654321";
   ctx.fillRect(0, canvas.height - groundHeight, canvas.width, groundHeight);
@@ -292,7 +323,7 @@ function fireMissile() {
     new PlayerMissile(missileLauncherX, missileLauncherY, reticle.x, reticle.y)
   );
 }
-
+canvas.addEventListener("click", handleStartClick);
 canvas.addEventListener("mousedown", (e) => {
   isFiring = true;
   fireMissile();
@@ -343,4 +374,11 @@ function gameLoop(timestamp) {
 }
 
 setInterval(addEnemyMissile, 2000);
-gameLoop();
+
+function startGame() {
+  if (!gameStarted) {
+    drawStartScreen();
+  }
+}
+
+startGame();
