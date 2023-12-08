@@ -11,6 +11,7 @@ let isFiring = false;
 let lastFired = 0;
 let loadedImagesCount = 0;
 let score = 0;
+let shootingStars = [];
 const scoreIncrement = 10;
 const totalImages = 5 + 9 + 15;
 
@@ -73,6 +74,65 @@ let starrySkyCanvas = document.createElement("canvas");
 let starrySkyCtx = starrySkyCanvas.getContext("2d");
 
 const enemyMissiles = [];
+
+class ShootingStar {
+  constructor(x, y, dx, dy, size) {
+    this.x = x;
+    this.y = y;
+    this.dx = dx; // Horizontal velocity
+    this.dy = dy; // Vertical velocity
+    this.size = size; // Size of the star
+    this.tail = [];
+    this.maxTailLength = 120;
+  }
+
+  update() {
+    this.x += this.dx;
+    this.y += this.dy;
+
+    // Add current position to the tail
+    this.tail.push({ x: this.x, y: this.y });
+
+    // Keep the tail at the maximum length
+    if (this.tail.length > this.maxTailLength) {
+      this.tail.shift();
+    }
+  }
+
+  draw(ctx) {
+    // Draw tail
+    for (let i = this.tail.length - 1; i > 0; i--) {
+      const opacity = i / this.tail.length; // Fade effect
+      const radius = (this.size * opacity) / 2; // Taper effect
+
+      // Sparkles (optional)
+      if (Math.random() < 0.3) {
+        ctx.beginPath();
+        ctx.arc(
+          this.tail[i].x,
+          this.tail[i].y,
+          radius * Math.random(),
+          0,
+          Math.PI * 2
+        );
+        ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+        ctx.fill();
+      }
+
+      // Tail segment
+      ctx.beginPath();
+      ctx.arc(this.tail[i].x, this.tail[i].y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      ctx.fill();
+    }
+
+    // Draw star
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+  }
+}
 
 class PlayerMissile {
   constructor(x, y, targetX, targetY) {
@@ -389,9 +449,49 @@ resizeCanvas();
 function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 
+  // Clear the canvas first
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  ctx.drawImage(starrySkyCanvas, 0, 0);
+
+  // Firing logic...
   if (isFiring && timestamp - lastFired > fireRate) {
     fireMissile();
     lastFired = timestamp;
+  }
+
+  // Shooting star logic
+  if (Math.random() < 0.001) {
+    // Random start position
+    let startX = Math.random() * canvas.width;
+    let startY = Math.random() * canvas.height;
+
+    // Random velocity components
+    let speed = Math.random() * 3 + 2; // Speed between 2 and 5
+    let angle = Math.random() * Math.PI * 2; // Random angle in radians
+    let dx = Math.cos(angle) * speed;
+    let dy = Math.sin(angle) * speed;
+
+    // Create and add the new shooting star
+    shootingStars.push(
+      new ShootingStar(startX, startY, dx, dy, Math.random() * 2 + 1)
+    ); // Adjust size if needed
+  }
+
+  for (let i = shootingStars.length - 1; i >= 0; i--) {
+    let star = shootingStars[i];
+    shootingStars[i].update();
+    shootingStars[i].draw(ctx);
+    // Check if the shooting star is off the screen (you can adjust the condition based on the star's trajectory)
+    if (
+      star.x < -star.size ||
+      star.x > canvas.width + star.size ||
+      star.y < -star.size ||
+      star.y > canvas.height + star.size
+    ) {
+      shootingStars.splice(i, 1);
+    }
   }
 
   playerMissiles.forEach((missile, index) => {
@@ -401,8 +501,8 @@ function gameLoop(timestamp) {
       playerMissiles.splice(index, 1);
     }
   });
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(starrySkyCanvas, 0, 0);
+  // ctx.clearRect(0, 0, canvas.width, canvas.height);
+  // ctx.drawImage(starrySkyCanvas, 0, 0);
   drawEnemyMissiles();
   drawMissileLauncher();
   drawGround();
