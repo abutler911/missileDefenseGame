@@ -10,6 +10,8 @@ let playerMissiles = [];
 let isFiring = false;
 let lastFired = 0;
 let loadedImagesCount = 0;
+let score = 0;
+const scoreIncrement = 10;
 const totalImages = 5 + 9 + 15;
 
 class City {
@@ -139,7 +141,7 @@ class PlayerMissile {
 function drawStartScreen() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.font = '100px "Press Start 2P", cursive';
+  ctx.font = '20px "Press Start 2P", cursive';
   ctx.fillStyle = "white";
   ctx.textAlign = "center";
   ctx.fillText("Missile Defense", canvas.width / 2, canvas.height / 2 - 20);
@@ -258,6 +260,14 @@ function createEnemyMissileExplosion(x, y) {
     frameCount: 0,
     frameRate: 10,
   });
+  score -= scoreIncrement / 2;
+}
+
+function drawScore() {
+  const padding = 50;
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText(`Score: ${score}`, padding, 55);
 }
 
 function drawEnemyMissileExplosions() {
@@ -354,7 +364,7 @@ function checkCollisionWithEnemyMissiles(playerMissile) {
 
     if (distance < playerMissile.explosionRadius) {
       enemyMissiles.splice(i, 1); // Remove the enemy missile
-      // Additional code if needed, e.g., increase score
+      score += scoreIncrement;
     }
   }
 }
@@ -399,6 +409,7 @@ function gameLoop(timestamp) {
   drawCities();
   drawEnemyMissileExplosions();
   drawReticle();
+  drawScore();
 
   playerMissiles.forEach((missile, index) => {
     missile.update();
