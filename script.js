@@ -1,24 +1,121 @@
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+const groundHeight = 30;
+let enemyMissileExplosions = [];
+let explosionSprites = [];
+let playerExplosionSprites = [];
+let citySprites = [];
+let playerMissiles = [];
+let isFiring = false;
+let lastFired = 0;
+class City {
+  constructor(sprite, x, y, scale = 0.5) {
+    this.sprite = sprite;
+    this.x = x;
+    this.y = y - sprite.height * scale;
+    this.scale = scale;
+  }
+
+  draw(ctx) {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.scale, this.scale);
+    ctx.drawImage(this.sprite, 0, 0);
+    ctx.restore();
+  }
+}
+const fireRate = 100;
+const reticle = {
+  x: canvas.width / 2,
+  y: canvas.height / 2,
+  size: 10,
+};
+
+for (let i = 1; i <= 5; i++) {
+  let sprite = new Image();
+  sprite.src = `cities/city0${i}.png`;
+  citySprites.push(sprite);
+}
+createCities();
+
+for (let i = 1; i <= 9; i++) {
+  let sprite = new Image();
+  sprite.src = `ExplosionB/Explosion-B${i}.png`;
+  explosionSprites.push(sprite);
+}
+
+for (let i = 1; i <= 15; i++) {
+  let sprite = new Image();
+  sprite.src = `ExplosionA/Explosion-A${i}.png`;
+  playerExplosionSprites.push(sprite);
+}
+
 let starrySkyCanvas = document.createElement("canvas");
 let starrySkyCtx = starrySkyCanvas.getContext("2d");
-let spriteSheet = new Image();
-spriteSheet.src = "sprites.png";
 
-const towers = [];
-let score = 0;
-const reticle = { x: 0, y: 0 };
-const missiles = [];
-const explosions = [];
 const enemyMissiles = [];
-const laserGun = { width: 50, height: 50 };
-const explosionFrames = [
-  // ... explosion frames ...
-];
-const groundHeight = 30; // Height of the ground from the bottom of the canvas
+
+class PlayerMissile {
+  constructor(x, y, targetX, targetY) {
+    this.x = x;
+    this.y = y;
+    this.targetX = targetX;
+    this.targetY = targetY;
+    this.speed = 10;
+    this.active = true;
+
+    this.exploding = false;
+    this.explosionIndex = 0;
+    this.frameCount = 0;
+    this.frameRate = 10;
+  }
+
+  update() {
+    if (!this.exploding) {
+      const dx = this.targetX - this.x;
+      const dy = this.targetY - this.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      if (distance > this.speed) {
+        this.x += (dx / distance) * this.speed;
+        this.y += (dy / distance) * this.speed;
+      } else {
+        this.exploding = true;
+      }
+    } else {
+      this.frameCount++;
+      if (this.frameCount >= this.frameRate) {
+        this.explosionIndex++;
+        this.frameCount = 0;
+
+        if (this.explosionIndex >= playerExplosionSprites.length) {
+          this.active = false;
+        }
+      }
+    }
+  }
+
+  draw(ctx) {
+    if (!this.active) return;
+
+    if (!this.exploding) {
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = "green";
+      ctx.fill();
+    } else if (this.explosionIndex < playerExplosionSprites.length) {
+      // Draw explosion
+      let sprite = playerExplosionSprites[this.explosionIndex];
+      ctx.drawImage(
+        sprite,
+        this.x - sprite.width / 2,
+        this.y - sprite.height / 2
+      );
+    }
+  }
+}
 
 function drawGround() {
-  ctx.fillStyle = "#654321"; // Brown color for the ground
+  ctx.fillStyle = "#654321";
   ctx.fillRect(0, canvas.height - groundHeight, canvas.width, groundHeight);
 }
 
@@ -36,128 +133,18 @@ function createStarrySky() {
     starrySkyCtx.fill();
   }
 }
-
-function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  createStarrySky();
-  positionTowers();
-  laserGun.x = canvas.width / 2 - laserGun.width / 2;
-  laserGun.y = canvas.height - laserGun.height - 10;
-  reticle.x = canvas.width / 2;
-  reticle.y = canvas.height / 2;
-}
-
-function positionTowers() {
-  const numberOfTowers = 5;
-  const towerWidth = 40;
-  const towerHeight = 60;
-  const spacing =
-    (canvas.width - numberOfTowers * towerWidth) / (numberOfTowers + 1);
-  const towerHitPoints = 100;
-  towers.length = 0;
-  for (let i = 0; i < numberOfTowers; i++) {
-    let towerX = spacing + i * (towerWidth + spacing);
-    if (
-      towerX + towerWidth > laserGun.x &&
-      towerX < laserGun.x + laserGun.width
-    ) {
-      continue;
-    }
-    towers.push({
-      x: towerX,
-      y: canvas.height - towerHeight - 10,
-      width: towerWidth,
-      height: towerHeight,
-      hitPoints: towerHitPoints,
-    });
-  }
-
-  towers.forEach((tower) => {
-    tower.y = canvas.height - groundHeight - tower.height;
+function createCities() {
+  cities = [];
+  const citySpacing = canvas.width / citySprites.length;
+  citySprites.forEach((sprite, index) => {
+    let x = index * citySpacing + (citySpacing - sprite.width * 0.5) / 2;
+    let y = canvas.height - groundHeight;
+    cities.push(new City(sprite, x, y, 0.5));
   });
 }
 
-function drawTowers() {
-  ctx.fillStyle = "blue";
-  towers.forEach((tower) => {
-    if (tower.hitPoints > 0) {
-      ctx.fillRect(tower.x, tower.y, tower.width, tower.height);
-      ctx.fillStyle = "white";
-      ctx.fillText(tower.hitPoints, tower.x + 10, tower.y + 30);
-      ctx.fillStyle = "blue";
-    }
-  });
-}
-
-function drawLaserGun() {
-  ctx.fillStyle = "green";
-  ctx.fillRect(laserGun.x, laserGun.y, laserGun.width, laserGun.height);
-}
-
-function createExplosion(x, y) {
-  // Add an initial stage for the explosion
-  explosions.push({
-    x,
-    y,
-    radius: 1,
-    stage: 0,
-    maxRadius: 100, // Maximum radius of explosion
-  });
-}
-
-function drawExplosions() {
-  for (let i = explosions.length - 1; i >= 0; i--) {
-    const explosion = explosions[i];
-    const sprite = explosionSprites[explosion.spriteIndex];
-
-    const yOffset = 70;
-
-    ctx.drawImage(
-      sprite,
-      explosion.x - sprite.width / 2,
-      explosion.y - sprite.height / 2 - yOffset
-    );
-
-    explosion.frameCount++;
-    if (explosion.frameCount >= explosion.frameRate) {
-      explosion.spriteIndex++;
-      explosion.frameCount = 0;
-
-      if (explosion.spriteIndex >= explosionSprites.length) {
-        explosions.splice(i, 1);
-      }
-    }
-  }
-}
-
-function checkExplosionCollision(explosion) {
-  for (let i = enemyMissiles.length - 1; i >= 0; i--) {
-    const missile = enemyMissiles[i];
-    const dx = explosion.x - missile.x;
-    const dy = explosion.y - missile.y;
-    if (Math.sqrt(dx * dx + dy * dy) < explosion.radius + 5) {
-      enemyMissiles.splice(i, 1);
-      score += 10;
-    }
-  }
-}
-
-function drawMissiles() {
-  missiles.forEach((missile, index) => {
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(missile.x, missile.y, 5, 0, Math.PI * 2);
-    ctx.fill();
-    const dx = missile.toX - missile.x;
-    const dy = missile.toY - missile.y;
-    missile.x += (dx / Math.sqrt(dx * dx + dy * dy)) * 5;
-    missile.y += (dy / Math.sqrt(dx * dx + dy * dy)) * 5;
-    if (Math.abs(dx) < 5 && Math.abs(dy) < 5) {
-      createExplosion(missile.toX, missile.toY);
-      missiles.splice(index, 1);
-    }
-  });
+function drawCities() {
+  cities.forEach((city) => city.draw(ctx));
 }
 
 function addEnemyMissile() {
@@ -172,185 +159,187 @@ function addEnemyMissile() {
 
 function drawEnemyMissiles() {
   enemyMissiles.forEach((missile, index) => {
-    // Update missile position
     missile.x += missile.sway;
     missile.y += missile.speed;
 
-    // Add current position to the trail
     missile.trail.push({ x: missile.x, y: missile.y });
-
-    // Keep the trail length consistent
-    const trailLength = 50;
+    const trailLength = 100;
     if (missile.trail.length > trailLength) {
       missile.trail.shift();
     }
 
-    // Draw the missile trail
     const gradient = ctx.createLinearGradient(
       missile.x,
       missile.y,
       missile.x,
-      missile.trail[0].y
+      missile.y - trailLength
     );
-    gradient.addColorStop(0, "rgba(255, 0, 0, 1)"); // Red at the missile
-    gradient.addColorStop(1, "rgba(255, 255, 255, 0)"); // Transparent at the start of the trail
+    gradient.addColorStop(0, "rgba(255, 0, 0, 1)");
+    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
 
     ctx.beginPath();
-    ctx.moveTo(missile.x, missile.y);
     missile.trail.forEach((pos, idx) => {
-      ctx.lineTo(pos.x, pos.y);
+      if (idx === 0) ctx.moveTo(pos.x, pos.y);
+      else ctx.lineTo(pos.x, pos.y);
     });
     ctx.strokeStyle = gradient;
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    if (missile.y >= canvas.height - groundHeight) {
-      createGroundExplosion(missile.x, canvas.height - groundHeight);
-      enemyMissiles.splice(index, 1); // Remove the missile
-    }
-    // Draw the missile head
-    const missileHeadSize = 3;
     ctx.fillStyle = "red";
-    ctx.shadowColor = "red";
-    ctx.shadowBlur = 10;
     ctx.beginPath();
-    ctx.arc(missile.x, missile.y, missileHeadSize, 0, Math.PI * 2);
+    ctx.arc(missile.x, missile.y, 3, 0, Math.PI * 2);
     ctx.fill();
-    ctx.shadowBlur = 0;
 
-    // Check for collisions with towers
-    checkMissileTowerCollision(missile, index);
+    if (missile.y >= canvas.height - groundHeight) {
+      createEnemyMissileExplosion(missile.x, canvas.height - groundHeight);
+      enemyMissiles.splice(index, 1);
+    }
   });
 }
 
-let explosionSprites = [];
-for (let i = 1; i < 10; i++) {
-  let sprite = new Image();
-  sprite.src = "ExplosionB/Explosion-B" + i + ".png";
-  explosionSprites.push(sprite);
-}
-
-function checkMissileGroundCollision(missile, index) {
-  // Check if missile hits the ground
-  if (missile.y >= canvas.height - groundHeight) {
-    createGroundExplosion(missile.x, canvas.height - groundHeight);
-    enemyMissiles.splice(index, 1); // Remove missile
-  }
-}
-
-function createGroundExplosion(x, y) {
-  explosions.push({
+function createEnemyMissileExplosion(x, y) {
+  enemyMissileExplosions.push({
     x,
     y,
-    spriteIndex: 0, // Start with the first sprite
-    frameCount: 0, // Counter for controlling sprite change rate
-    frameRate: 5, // Number of game frames before changing the sprite
+    spriteIndex: 0,
+    frameCount: 0,
+    frameRate: 10,
   });
 }
 
-function checkMissileTowerCollision(missile, missileIndex) {
-  for (const tower of towers) {
-    if (
-      missile.x > tower.x &&
-      missile.x < tower.x + tower.width &&
-      missile.y > tower.y &&
-      missile.y < tower.y + tower.height &&
-      tower.hitPoints > 0
-    ) {
-      tower.hitPoints -= 20;
-      enemyMissiles.splice(missileIndex, 1);
-      break;
+function drawEnemyMissileExplosions() {
+  for (let i = enemyMissileExplosions.length - 1; i >= 0; i--) {
+    const explosion = enemyMissileExplosions[i];
+    const sprite = explosionSprites[explosion.spriteIndex];
+
+    const spriteYOffset = sprite.height / 2 + 70;
+
+    ctx.drawImage(
+      sprite,
+      explosion.x - sprite.width / 2,
+      explosion.y - spriteYOffset
+    );
+
+    explosion.frameCount++;
+    if (explosion.frameCount >= explosion.frameRate) {
+      explosion.spriteIndex++;
+      explosion.frameCount = 0;
+
+      if (explosion.spriteIndex >= explosionSprites.length) {
+        enemyMissileExplosions.splice(i, 1);
+      }
     }
   }
+}
+
+function drawMissileLauncher() {
+  const launcherWidth = 40;
+  const launcherHeight = 60;
+  const launcherX = 10;
+  const launcherY = canvas.height - groundHeight - launcherHeight;
+
+  ctx.fillStyle = "darkgrey";
+  ctx.fillRect(launcherX, launcherY, launcherWidth, launcherHeight);
+
+  ctx.fillStyle = "black";
+  ctx.beginPath();
+  ctx.arc(
+    launcherX + launcherWidth / 2,
+    launcherY,
+    launcherWidth / 4,
+    0,
+    Math.PI * 2
+  );
+  ctx.fill();
+
+  ctx.fillStyle = "silver";
+  ctx.fillRect(launcherX + 10, launcherY + 10, launcherWidth - 20, 10);
+  ctx.fillRect(launcherX + 10, launcherY + 30, launcherWidth - 20, 10);
 }
 
 function drawReticle() {
-  ctx.strokeStyle = "white";
   ctx.beginPath();
-  ctx.arc(reticle.x, reticle.y, 10, 0, Math.PI * 2);
+  ctx.arc(reticle.x, reticle.y, reticle.size, 0, Math.PI * 2);
+  ctx.strokeStyle = "yellow";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  const crosshairLength = 40;
+
+  ctx.beginPath();
+  ctx.moveTo(reticle.x - crosshairLength / 2, reticle.y);
+  ctx.lineTo(reticle.x + crosshairLength / 2, reticle.y);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(reticle.x, reticle.y - crosshairLength / 2);
+  ctx.lineTo(reticle.x, reticle.y + crosshairLength / 2);
   ctx.stroke();
 }
 
-function handleMouseMove(e) {
-  reticle.x = e.clientX - canvas.offsetLeft;
-  reticle.y = e.clientY - canvas.offsetTop;
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  createStarrySky();
+  createCities();
 }
 
-// Add Mouse Click Handler
-function handleMouseClick(e) {
-  missiles.push({
-    x: laserGun.x + laserGun.width / 2,
-    y: laserGun.y,
-    toX: e.clientX - canvas.offsetLeft,
-    toY: e.clientY - canvas.offsetTop,
-  });
+function fireMissile() {
+  const missileLauncherX = 50;
+  const missileLauncherY = canvas.height - groundHeight - 50;
+  playerMissiles.push(
+    new PlayerMissile(missileLauncherX, missileLauncherY, reticle.x, reticle.y)
+  );
 }
 
-function drawScore() {
-  ctx.fillStyle = "white";
-  ctx.font = "20px Arial";
-  ctx.fillText("Score: " + score, canvas.width - 150, 30);
-}
+canvas.addEventListener("mousedown", (e) => {
+  isFiring = true;
+  fireMissile();
+});
 
-function createStarrySky() {
-  starrySkyCanvas.width = canvas.width;
-  starrySkyCanvas.height = canvas.height;
-  drawStarrySky(starrySkyCtx);
-}
+canvas.addEventListener("mouseup", (e) => {
+  isFiring = false;
+});
+canvas.addEventListener("mousemove", function (e) {
+  reticle.x = e.clientX - canvas.getBoundingClientRect().left;
+  reticle.y = e.clientY - canvas.getBoundingClientRect().top;
+});
 
-function drawStarrySky(ctx) {
-  const starCount = 100;
-  ctx.fillStyle = "white";
-
-  for (let i = 0; i < starCount; i++) {
-    const x = Math.random() * canvas.width;
-    const y = Math.random() * canvas.height;
-    const radius = Math.random() * 1.5;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(starrySkyCanvas, 0, 0);
-  drawTowers();
-  drawLaserGun();
-  drawMissiles();
-  drawExplosions();
-  drawEnemyMissiles();
-  drawReticle();
-  drawScore();
-  drawGround();
-}
-
-function handleTouchMove(e) {
-  const touch = e.touches[0];
-  reticle.x = touch.clientX - canvas.offsetLeft;
-  reticle.y = touch.clientY - canvas.offsetTop;
-}
-
-function handleTouchStart(e) {
-  const touch = e.touches[0];
-  missiles.push({
-    x: laserGun.x + laserGun.width / 2,
-    y: laserGun.y,
-    toX: touch.clientX - canvas.offsetLeft,
-    toY: touch.clientY - canvas.offsetTop,
-  });
-}
-
-canvas.addEventListener("touchmove", handleTouchMove);
-canvas.addEventListener("touchstart", handleTouchStart);
-canvas.addEventListener("mousemove", handleMouseMove);
-canvas.addEventListener("click", handleMouseClick);
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
-function gameLoop() {
+function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
-  draw();
+
+  if (isFiring && timestamp - lastFired > fireRate) {
+    fireMissile();
+    lastFired = timestamp;
+  }
+
+  playerMissiles.forEach((missile, index) => {
+    missile.update();
+    missile.draw(ctx);
+    if (!missile.active) {
+      playerMissiles.splice(index, 1);
+    }
+  });
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(starrySkyCanvas, 0, 0);
+  drawEnemyMissiles();
+  drawMissileLauncher();
+  drawGround();
+  drawCities();
+  drawEnemyMissileExplosions();
+  drawReticle();
+
+  playerMissiles.forEach((missile, index) => {
+    missile.update();
+    missile.draw(ctx);
+    if (!missile.active) {
+      playerMissiles.splice(index, 1);
+    }
+  });
 }
 
 setInterval(addEnemyMissile, 2000);
