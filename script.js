@@ -362,8 +362,6 @@ function createEnemyMissileExplosion(x, y, decrementScore = true) {
     frameCount: 0,
     frameRate: 10,
   });
-  s;
-
   if (decrementScore) {
     score -= scoreIncrement / 2;
   }
