@@ -21,6 +21,7 @@ class City {
     this.x = x;
     this.y = y - sprite.height * scale;
     this.scale = scale;
+    this.shieldActive = false;
   }
 
   draw(ctx) {
@@ -28,7 +29,24 @@ class City {
     ctx.translate(this.x, this.y);
     ctx.scale(this.scale, this.scale);
     ctx.drawImage(this.sprite, 0, 0);
+    // Draw shield
+    if (this.shieldActive) {
+      ctx.beginPath();
+      ctx.arc(
+        this.sprite.width / 2,
+        this.sprite.height / 2,
+        200,
+        0,
+        Math.PI * 2
+      );
+      ctx.fillStyle = "rgba(0, 0, 255, 0.3)"; // Semi-transparent blue
+      ctx.fill();
+    }
     ctx.restore();
+  }
+
+  get shieldRadius() {
+    return 100;
   }
 }
 const fireRate = 100;
@@ -198,6 +216,13 @@ class PlayerMissile {
   }
 }
 
+function checkCollision(missile, city) {
+  const distance = Math.sqrt(
+    Math.pow(missile.x - city.x, 2) + Math.pow(missile.y - city.y, 2)
+  );
+  return distance < city.shieldRadius;
+}
+
 function drawStartScreen() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -272,7 +297,8 @@ function addEnemyMissile() {
 }
 
 function drawEnemyMissiles() {
-  enemyMissiles.forEach((missile, index) => {
+  for (let i = enemyMissiles.length - 1; i >= 0; i--) {
+    let missile = enemyMissiles[i];
     missile.x += missile.sway;
     missile.y += missile.speed;
 
@@ -282,37 +308,53 @@ function drawEnemyMissiles() {
       missile.trail.shift();
     }
 
-    const gradient = ctx.createLinearGradient(
-      missile.x,
-      missile.y,
-      missile.x,
-      missile.y - trailLength
-    );
-    gradient.addColorStop(0, "rgba(255, 0, 0, 1)");
-    gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
-
-    ctx.beginPath();
-    missile.trail.forEach((pos, idx) => {
-      if (idx === 0) ctx.moveTo(pos.x, pos.y);
-      else ctx.lineTo(pos.x, pos.y);
-    });
-    ctx.strokeStyle = gradient;
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.fillStyle = "red";
-    ctx.beginPath();
-    ctx.arc(missile.x, missile.y, 3, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (missile.y >= canvas.height - groundHeight) {
-      createEnemyMissileExplosion(missile.x, canvas.height - groundHeight);
-      enemyMissiles.splice(index, 1);
+    // Check for collision with shield
+    let hitShield = false;
+    for (const city of cities) {
+      if (city.shieldActive && checkCollision(missile, city)) {
+        hitShield = true;
+        createEnemyMissileExplosion(missile.x, missile.y, false); // Explosion without score decrement
+        enemyMissiles.splice(i, 1);
+        break; // Exit the loop as the missile is already destroyed
+      }
     }
-  });
+
+    if (!hitShield) {
+      // Draw missile trail
+      const gradient = ctx.createLinearGradient(
+        missile.x,
+        missile.y,
+        missile.x,
+        missile.y - trailLength
+      );
+      gradient.addColorStop(0, "rgba(255, 0, 0, 1)");
+      gradient.addColorStop(1, "rgba(255, 255, 255, 0)");
+
+      ctx.beginPath();
+      missile.trail.forEach((pos, idx) => {
+        if (idx === 0) ctx.moveTo(pos.x, pos.y);
+        else ctx.lineTo(pos.x, pos.y);
+      });
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Draw missile
+      ctx.fillStyle = "red";
+      ctx.beginPath();
+      ctx.arc(missile.x, missile.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Check for ground collision
+      if (missile.y >= canvas.height - groundHeight) {
+        createEnemyMissileExplosion(missile.x, canvas.height - groundHeight);
+        enemyMissiles.splice(i, 1);
+      }
+    }
+  }
 }
 
-function createEnemyMissileExplosion(x, y) {
+function createEnemyMissileExplosion(x, y, decrementScore = true) {
   enemyMissileExplosions.push({
     x,
     y,
@@ -320,7 +362,11 @@ function createEnemyMissileExplosion(x, y) {
     frameCount: 0,
     frameRate: 10,
   });
-  score -= scoreIncrement / 2;
+  s;
+
+  if (decrementScore) {
+    score -= scoreIncrement / 2;
+  }
 }
 
 function drawScore() {
@@ -428,7 +474,17 @@ function checkCollisionWithEnemyMissiles(playerMissile) {
     }
   }
 }
+window.addEventListener("keydown", function (e) {
+  if (e.key === "s" || e.key === "S") {
+    toggleShield();
+  }
+});
 
+function toggleShield() {
+  cities.forEach((city) => {
+    city.shieldActive = !city.shieldActive;
+  });
+}
 canvas.addEventListener("click", handleStartClick);
 canvas.addEventListener("mousedown", (e) => {
   isFiring = true;
