@@ -15,6 +15,79 @@ let shootingStars = [];
 const scoreIncrement = 10;
 const totalImages = 5 + 9 + 15;
 
+class HeatSeekingMissile {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.speed = 5;
+    this.target = null;
+    this.active = true;
+    this.trail = [];
+  }
+
+  findTarget() {
+    if (enemyMissiles.length > 0) {
+      // Select the closest enemy missile as the target
+      this.target = enemyMissiles.reduce((closest, missile) => {
+        const closestDistance = Math.sqrt(
+          Math.pow(closest.x - this.x, 2) + Math.pow(closest.y - this.y, 2)
+        );
+        const missileDistance = Math.sqrt(
+          Math.pow(missile.x - this.x, 2) + Math.pow(missile.y - this.y, 2)
+        );
+        return missileDistance < closestDistance ? missile : closest;
+      });
+    }
+  }
+
+  update() {
+    if (!this.target || !this.active) return;
+
+    // Calculate direction towards the target
+    const dx = this.target.x - this.x;
+    const dy = this.target.y - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Move towards the target
+    if (distance > 1) {
+      this.x += (dx / distance) * this.speed;
+      this.y += (dy / distance) * this.speed;
+    } else {
+      // Target hit
+      // createEnemyMissileExplosion(this.target.x, this.target.y);
+      const targetIndex = enemyMissiles.indexOf(this.target);
+      if (targetIndex > -1) {
+        enemyMissiles.splice(targetIndex, 1); // Remove the target missile
+      }
+      this.active = false; // Deactivate the heat-seeking missile
+    }
+    this.trail.push({ x: this.x, y: this.y });
+    const trailLength = 50; // Adjust length as needed
+    if (this.trail.length > trailLength) {
+      this.trail.shift();
+    }
+  }
+
+  draw(ctx) {
+    if (!this.active) return;
+
+    // Draw the trail with fading effect
+    for (let i = 0; i < this.trail.length; i++) {
+      const opacity = (i + 1) / this.trail.length; // Fading effect
+      ctx.beginPath();
+      ctx.arc(this.trail[i].x, this.trail[i].y, 2 * opacity, 0, Math.PI * 2); // Smaller and fading
+      ctx.fillStyle = `rgba(255, 165, 0, ${opacity})`; // Using orange color with fading
+      ctx.fill();
+    }
+
+    // Draw the head of the missile
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, 2, 0, Math.PI * 2); // Smaller head size
+    ctx.fillStyle = "orange";
+    ctx.fill();
+  }
+}
+
 class City {
   constructor(sprite, x, y, scale = 0.5) {
     this.sprite = sprite;
@@ -472,11 +545,22 @@ function checkCollisionWithEnemyMissiles(playerMissile) {
     }
   }
 }
+
 window.addEventListener("keydown", function (e) {
   if (e.key === "s" || e.key === "S") {
     toggleShield();
+  } else if (e.key === "h" || e.key === "H") {
+    fireHeatSeekingMissile();
   }
 });
+
+function fireHeatSeekingMissile() {
+  const launcherX = 50;
+  const launcherY = canvas.height - groundHeight - 50;
+  const missile = new HeatSeekingMissile(launcherX, launcherY);
+  missile.findTarget();
+  playerMissiles.push(missile);
+}
 
 function toggleShield() {
   cities.forEach((city) => {
@@ -549,8 +633,12 @@ function gameLoop(timestamp) {
   }
 
   playerMissiles.forEach((missile, index) => {
-    missile.update();
-    missile.draw(ctx);
+    if (missile instanceof HeatSeekingMissile) {
+      missile.update();
+      missile.draw(ctx);
+    } else {
+      // Existing missile update and draw logic...
+    }
     if (!missile.active) {
       playerMissiles.splice(index, 1);
     }
